@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Launcher: run the consult package from any directory. Symlinked from ~/.local/bin/consult.
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+exec env PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}" python3 -m consult "$@"

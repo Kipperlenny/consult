@@ -1,0 +1,12 @@
+[project]
+name = "Sourdough Club (synthetic example)"
+language = "en"
+framing = """
+Synthetic example project for the consult documentation – every number below is invented. Sourdough Club is a
+weekly email with one tested sourdough recipe and a short technique note, run by one person in the evenings. It has
+a free list and no paid offer yet. The goal is the first paying subscriber within 60 days without the operator
+spending more than two hours a week. Fixed: no ads in the emails, no selling of the list, everything legal (EU).
+"""
+kpi = "the first paying subscriber"
+context_files = ["docs/goal.md", "docs/kpi.md"]
+reviews_dir = ".consult/reviews"

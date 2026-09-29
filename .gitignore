@@ -1,0 +1,8 @@
+# secrets: .env is a plain file or a symlink from a secret manager – never commit it
+.env
+node_modules/
+__pycache__/
+*.pyc
+.consult/reviews/
+.consult/memory.md
+.cache/

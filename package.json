@@ -1,0 +1,8 @@
+{
+  "name": "consult-tools",
+  "private": true,
+  "description": "Playwright for tools/shots.cjs (screenshots for `consult review`). Python side is stdlib only.",
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}

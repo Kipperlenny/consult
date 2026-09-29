@@ -1,0 +1,16 @@
+# consult about consult: decisions on this toolkit itself. Reports and memory stay out of git (.gitignore).
+[project]
+name = "consult toolkit"
+site = "https://github.com/Kipperlenny/consult"
+language = "en"
+framing = """
+`consult` is a small open-source tool (Python, stdlib only) for AI coding agents and people: it asks LLM consultants
+for second opinions with the project's own context – one question, a blind panel with a synthesis, a page review from
+screenshots, or a thread with memory – on OpenAI, Anthropic or OpenRouter. Fixed: no secrets in the repository, no
+personal data sent to a model, honest about what synthetic personas can and cannot do. Open: which features are worth
+building next, and how to make it easy for others to adopt and contribute.
+"""
+kpi = "usefulness for developers who build with AI agents, at zero security risk"
+context_files = ["README.md", "CLAUDE.md", ".env.example", ".gitignore"]
+never_send = [".env"]
+panel_personas = ["skeptic"]
