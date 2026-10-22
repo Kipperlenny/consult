@@ -9,6 +9,8 @@
 
 The provider follows from the model name (`claude-…` → anthropic, `vendor/model` → openrouter, else openai) unless
 `CONSULT_PROVIDER` says otherwise. Add another by implementing a function with `complete()`'s signature.
+If a provider refuses before answering – no key, a rejected key, no credit left – `complete()` asks
+`CONSULT_FALLBACK_MODEL` (`CONSULT_FALLBACK_MODEL_BEST` for the best model) instead, once.
 
 Streamed not because we show it live, but because a single long non-streaming request sits on a silent socket:
 a 2026-09-18 run hung for the full 40-minute timeout with no way to tell thinking from a dead connection. Each
@@ -39,6 +41,10 @@ BEST_EFFORTS = ("high", "xhigh", "max")  # at these efforts the "best" model is 
 MAX_CONTINUATIONS = 5  # Anthropic: how often a paused server-tool turn is resumed before giving up
 # Claude models that answer a refusal with a fallback model on the server (beta); see _anthropic()
 CLAUDE_FALLBACK_MODELS = ("claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5")
+
+
+class Unavailable(ConsultError):
+    """The provider refused before answering: no key, a rejected key, or no credit left. Only this falls back."""
 
 
 def resolve_model(project: Project, override: str | None = None, effort: str = "", best: bool = False) -> str:
@@ -85,6 +91,13 @@ def describe(model: str) -> str:
 
 def api_key(model: str) -> str | None:
     return env(PROVIDERS[provider_for(model)]["key"])
+
+
+def fallback_for(model: str) -> str | None:
+    """The model to ask when `model`'s provider is unavailable; None when none is set or it has no key either."""
+    best = model == setting("CONSULT_MODEL_BEST", "OPENAI_MODEL_BEST")
+    backup = (best and env("CONSULT_FALLBACK_MODEL_BEST")) or env("CONSULT_FALLBACK_MODEL")
+    return backup if backup and backup != model and api_key(backup) else None
 
 
 def is_reasoning_model(model: str) -> bool:
@@ -171,7 +184,19 @@ def _to_anthropic(messages: list[dict]) -> tuple[str, list[dict]]:
 
 def complete(messages: list[dict], model: str, effort: str, max_tokens: int = DEFAULT_MAX_TOKENS,
              stall: int | None = None, quiet: bool = False, web: bool = True) -> tuple[str, dict, str | None]:
-    """Run one completion. Returns (text, usage with prompt_tokens/completion_tokens/cost_usd, finish_reason)."""
+    """Run one completion. Returns (text, usage with prompt_tokens/completion_tokens/cost_usd/model, finish_reason).
+    usage["model"] is the model that answered – the fallback, if the first provider was unavailable."""
+    try:
+        return _complete(messages, model, effort, max_tokens, stall, quiet, web)
+    except Unavailable as e:
+        backup = fallback_for(model)
+        if not backup:
+            raise
+        print(f"  {e}\n  → falling back to {backup}", file=sys.stderr)  # even when quiet: the bill goes elsewhere
+        return _complete(messages, backup, effort, max_tokens, stall, quiet, web)
+
+
+def _complete(messages, model, effort, max_tokens, stall, quiet, web):
     stall = stall or int(setting("CONSULT_STALL_SECONDS", "OPENAI_STALL_SECONDS", default="180"))
     name = provider_for(model)
     if name == "anthropic":
@@ -184,7 +209,10 @@ def complete(messages: list[dict], model: str, effort: str, max_tokens: int = DE
 
 
 def _headers(provider: str) -> dict:
-    key = require_env(PROVIDERS[provider]["key"])
+    try:
+        key = require_env(PROVIDERS[provider]["key"])
+    except ConsultError as e:
+        raise Unavailable(str(e)) from None
     if provider == "anthropic":
         return {"x-api-key": key, "anthropic-version": "2023-06-01"}
     headers = {"Authorization": "Bearer " + key}
@@ -211,7 +239,10 @@ def _stream(provider: str, path: str, payload: dict, stall: int, extra_headers: 
                 except json.JSONDecodeError as e:
                     raise ConsultError(f"corrupt event in the model's stream: {body[:200]!r}") from e
     except urllib.error.HTTPError as e:
-        raise ConsultError(f"{spec['label']} HTTP {e.code}: {e.read().decode(errors='replace')[:600]}") from e
+        body = e.read().decode(errors="replace")[:600]
+        # Anthropic: 400 "credit balance is too low"; OpenAI: 429 "insufficient_quota"; both: 401/403 for a bad key
+        error = Unavailable if e.code in (401, 402, 403) or re.search(r"credit|billing|quota", body, re.I) else ConsultError
+        raise error(f"{spec['label']} HTTP {e.code}: {body}") from e
     except TimeoutError as e:
         raise ConsultError(f"no data from the model for {stall}s – raise CONSULT_STALL_SECONDS or --stall") from e
     except (urllib.error.URLError, ConnectionError, http.client.HTTPException) as e:

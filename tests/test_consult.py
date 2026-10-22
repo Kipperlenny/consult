@@ -213,6 +213,30 @@ class OtherProviderTests(Base):
         os.environ["CONSULT_MODEL"] = "claude-sonnet-5-5"
         self.assertEqual(providers.resolve_model(config.find_project()), "claude-sonnet-5-5")
 
+    def test_unavailable_provider_falls_back_once(self):
+        os.environ.update(CONSULT_FALLBACK_MODEL="gpt-6-sol", CONSULT_MODEL_BEST="claude-opus-5-5",
+                          CONSULT_FALLBACK_MODEL_BEST="gpt-6-astra")
+        broke = urllib.error.HTTPError("u", 400, "Bad Request", email.message.Message(), io.BytesIO(
+            b'{"error": {"message": "Your credit balance is too low to access the Anthropic API."}}'))
+        (text, usage, _), fake = self.call("claude-sonnet-5-5", broke,
+                                           FakeResponse(sse(delta("ok"), completed())))
+        self.assertEqual((text, usage["model"]), ("ok", "gpt-6-sol"))
+        self.assertIn("api.openai.com", fake.call_args.args[0].full_url)
+        self.assertIn("falling back to gpt-6-sol", self.stderr.getvalue())
+        del os.environ["ANTHROPIC_API_KEY"]  # no key at all also falls back; the best model has its own fallback
+        (_, usage, _), _ = self.call("claude-opus-5-5", FakeResponse(sse(delta("ok"), completed())))
+        self.assertEqual(usage["model"], "gpt-6-astra")
+
+    def test_other_errors_and_missing_fallback_key_do_not_fall_back(self):
+        os.environ["CONSULT_FALLBACK_MODEL"] = "gpt-6-sol"
+        overloaded = urllib.error.HTTPError("u", 529, "Overloaded", email.message.Message(),
+                                            io.BytesIO(b'{"error": {"type": "overloaded_error"}}'))
+        with self.assertRaisesRegex(ConsultError, "Anthropic HTTP 529"):
+            self.call("claude-sonnet-5-5", overloaded)
+        del os.environ["ANTHROPIC_API_KEY"], os.environ["OPENAI_API_KEY"]
+        with self.assertRaisesRegex(ConsultError, "ANTHROPIC_API_KEY"):
+            self.call("claude-sonnet-5-5")
+
     def test_missing_anthropic_key(self):
         del os.environ["ANTHROPIC_API_KEY"]
         with self.assertRaisesRegex(ConsultError, "ANTHROPIC_API_KEY"):

@@ -101,7 +101,8 @@ Then paste `consult snippet` into the project's CLAUDE.md so its agents know whe
 - Secrets: a plain `.env` from `.env.example` (git-ignored), or the keys exported in the environment (which wins over
   `.env`); `.env` may also be a symlink from a secret manager – a dangling one means it is locked. `CONSULT_MODEL` is
   required – nothing is picked silently. Keys: `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY`,
-  `CONSULT_PROVIDER`, `CONSULT_MODEL`, `CONSULT_MODEL_BEST`, `CONSULT_EFFORT`, `CONSULT_WEB`, `CONSULT_MAX_USD`,
+  `CONSULT_PROVIDER`, `CONSULT_MODEL`, `CONSULT_MODEL_BEST`, `CONSULT_FALLBACK_MODEL(_BEST)` (asked when the
+  provider has no key or no credit, README "Providers"), `CONSULT_EFFORT`, `CONSULT_WEB`, `CONSULT_MAX_USD`,
   `CONSULT_STALL_SECONDS`, `OPENAI_API` (older `OPENAI_MODEL`, `OPENAI_MODEL_BEST`, `OPENAI_EFFORT`,
   `OPENAI_STALL_SECONDS` still work). Projects' own `.env` files are never read.
 - Screenshots: `tools/shots.cjs` with Playwright from `node_modules/` (`npm ci --ignore-scripts` here once, locked

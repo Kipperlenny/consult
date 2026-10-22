@@ -73,6 +73,12 @@ Mixing works: an everyday model from one provider (`CONSULT_MODEL`) and the "bes
 (`fallbacks: "default"`, beta): if a safety classifier declines, another Claude model answers in the same call and
 the report says which one. A refusal that is not rescued is an error, never a saved answer.
 
+**Provider fallback.** With `CONSULT_FALLBACK_MODEL` (and optionally `CONSULT_FALLBACK_MODEL_BEST` for the best model)
+set, a call whose provider is unavailable – no key, a rejected key (401/403), or no credit left (Anthropic's "credit
+balance is too low", OpenAI's `insufficient_quota`) – is asked once more on the fallback model, if that one's key is
+set. stderr says so and the report names the model that answered. Other errors (overload, timeout, a cut-off stream)
+never fall back. `CONSULT_PROVIDER` forces both onto one provider, so leave it empty when you use a fallback.
+
 ## What leaves your machine, and what stays
 
 Sent to the model provider (OpenAI, Anthropic, or OpenRouter and the provider it routes to) with every call: the

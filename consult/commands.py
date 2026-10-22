@@ -15,7 +15,7 @@ from . import pricing
 from .config import ROOT, ConsultError, Persona, Project, env, find_project, setting
 from .context import (GENERIC_ROLE, check_images, check_url, context_block, first_message, pages_block, system_prompt,
                       today)
-from .providers import api_key, complete, describe, resolve_effort, resolve_model, user_message
+from .providers import api_key, complete, describe, fallback_for, resolve_effort, resolve_model, user_message
 from .report import header, quote, report_path, slug, sum_usage, tokens_line
 
 SYNTHESIS_ROLE = ("the project lead who turns several separately generated opinions into one prioritised action list – "
@@ -498,6 +498,8 @@ def cmd_status(args):
     try:
         model = resolve_model(project)
         provider = f"{describe(model)}; key {'ok' if api_key(model) else 'MISSING'}"
+        backup = fallback_for(model)
+        provider += f"; fallback {backup} ({describe(backup)})" if backup else "; no fallback"
     except ConsultError as e:
         model, provider = f"error: {e}", "-"
     dangling = ROOT.joinpath(".env").is_symlink() and not ROOT.joinpath(".env").exists()
